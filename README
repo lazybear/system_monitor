@@ -1,0 +1,67 @@
+Getting started:
+----------------
+
+   First thing needed to be setup - is ruby + rubygems. Assuming this is OSX platform, both are already there.
+   Next, we need to setup bundler: 
+           sudo gem install bundler
+   Finally, we install everything else using bundler: 
+           bundle install
+
+
+Basic Usage:
+------------
+
+The script for getting system stats is written as a Rakefile.
+Invoking 'rake' in the same directory where Rakefile is located will
+execute the script.
+Alternatively, it can be invoked by supplying a path to Rakefile, eg:
+
+rake -f /some/path/to/Rakefile
+
+In the local use scenario (ie: without RRDTool), execution target must be given like this:
+
+rake local
+
+For more info on usage, type:
+
+rake help
+
+
+Deployment on remote host(s):
+-----------------------------
+
+The easiest way to invoke this script on a different host(s), is to use Capistrano.
+The roles defined in Capfile must correspond to servers from which stats must be collected.
+There are 2 targets written in Capfile:
+
+a) cap install  : this will install Rakefile, Gemfile and bundler on target hosts, then run bundler to install all dependencies
+
+                  Note: in order for this target to work, the user specified in the Capfile (cap_user) must be able to:
+                        1. Login to all hosts without using password (using key authentication)
+                        2. Execute 'sudo' on all hosts without having to type password. This can be achieved by making sure the user
+	                   is part of 'wheel' group on all hosts and then uncommenting the following line in /etc/sudoers file:
+	                   # %wheel        ALL=(ALL) NOPASSWD: ALL
+
+b) cap getstats  : this will login to all hosts and run 'rake' command to get statistics about the system.
+
+
+RRDTool:
+--------
+
+This utility is designed to work with RRDTool. In order to use this utility, rrdtool db had to be created on some host:
+
+
+   (For example: rrdtool create monitor.rrd --start 1319525830 --step 300 DS:cpu:GAUGE:600:U:U \
+                                                                          DS:procs:GAUGE:600:U:U \
+									  DS:disk_usage:GAUGE:600:U:U \
+									  RRA:AVERAGE:0.5:12:24)
+
+Additionally, rrdcached has to be running on the same host where db was created:
+
+   rrdcached -P FLUSH,UPDATE -l localhost:8888 -g -p /tmp/rrdcached.pid
+
+Then, collecting stats on localhost only and sending data to rrdtool db can be done like this:
+
+   rake HOST=localhost PORT=8888 FILE=/Users/sashka/work/system_monitor/monitor.rrd
+
+In order to deploy on multiple hosts using Capistrano, Capfile must be edited to specify correct parameters for HOST, PORT and FILE.
